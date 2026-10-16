@@ -1,6 +1,7 @@
 Tenzan = Tenzan or {}
 
 local NET_SLASH = "tenzan_sword_slash"
+local NET_SLASH_TYPE_2 = "tenzan_sword_slash_type_2"
 local defaultSize = 50
 local defaultDuration = 0.4
 local defaultColorVec = Vector(1.0, 0.95, 0.4) * 2
@@ -8,6 +9,7 @@ local defaultColorVec = Vector(1.0, 0.95, 0.4) * 2
 if SERVER then
     Tenzan = Tenzan or {}
     util.AddNetworkString(NET_SLASH)
+    util.AddNetworkString(NET_SLASH_TYPE_2)
 
     function Tenzan.PlaySwordSlash(pos, angles, size, duration, colorVec)
         net.Start(NET_SLASH)
@@ -19,12 +21,31 @@ if SERVER then
         net.Broadcast()
     end
 
+    function Tenzan.PlaySwordSlashType2(pos, angles, size, duration, lingerDuration, colorVec)
+        net.Start(NET_SLASH_TYPE_2)
+        net.WriteVector(pos)
+        net.WriteAngle(angles)
+        net.WriteFloat(size or defaultSize)
+        net.WriteFloat(duration or defaultDuration)
+        net.WriteFloat(lingerDuration)
+        net.WriteVector(colorVec or defaultColorVec)
+        net.Broadcast()
+    end
+
     concommand.Add("tenzan_test_slash", function(ply)
         if not IsValid(ply) then
             return
         end
         local tr = ply:GetEyeTrace()
         Tenzan.PlaySwordSlash(tr.HitPos, ply:EyeAngles(), 100, 5)
+    end)
+
+    concommand.Add("tenzan_test_slash_type_2", function(ply)
+        if not IsValid(ply) then
+            return
+        end
+        local tr = ply:GetEyeTrace()
+        Tenzan.PlaySwordSlashType2(tr.HitPos, ply:EyeAngles(), 100, 5, 1)
     end)
 end
 
@@ -49,15 +70,47 @@ if CLIENT then
         return self
     end
 
+    Tenzan.SwordSlashEffectType_2 = {}
+    Tenzan.SwordSlashEffectType_2.__index = Tenzan.SwordSlashEffectType_2
+    function Tenzan.SwordSlashEffectType_2.new(pos, angles, size, duration, lingerDuration, colorVec)
+        local self = setmetatable({}, Tenzan.SwordSlashEffectType_2)
+
+        self.Type = "TYPE_2" -- string
+        self.Duration = duration or defaultDuration -- number (seconds)
+        self.LingerDuration = lingerDuration -- number (seconds)
+        self.ColorVec = colorVec or defaultColorVec -- Vector
+        self.Pos = pos -- Vector
+        self.Angles = angles -- Angle
+        self.Size = size or defaultSize -- number
+
+        return self
+    end
+
     function Tenzan.PlaySwordSlash(pos, angles, size, duration, colorVec)
         Tenzan.SwordSlashEffects[#Tenzan.SwordSlashEffects + 1] =
             Tenzan.SwordSlashEffectType_1.new(pos, angles, size, duration, colorVec)
+    end
+
+    function Tenzan.PlaySwordSlashType2(pos, angles, size, duration, lingerDuration, colorVec)
+        Tenzan.SwordSlashEffects[#Tenzan.SwordSlashEffects + 1] =
+            Tenzan.SwordSlashEffectType_2.new(pos, angles, size, duration, lingerDuration, colorVec)
     end
 
     net.Receive(NET_SLASH, function()
         Tenzan.PlaySwordSlash(
             net.ReadVector(),
             net.ReadAngle(),
+            net.ReadFloat(),
+            net.ReadFloat(),
+            net.ReadVector()
+        )
+    end)
+
+    net.Receive(NET_SLASH_TYPE_2, function()
+        Tenzan.PlaySwordSlashType2(
+            net.ReadVector(),
+            net.ReadAngle(),
+            net.ReadFloat(),
             net.ReadFloat(),
             net.ReadFloat(),
             net.ReadVector()
@@ -109,6 +162,37 @@ if CLIENT then
                 cam.PopModelMatrix()
 
                 if elapsed >= effect.Duration then
+                    table.remove(Tenzan.SwordSlashEffects, i)
+                end
+            elseif effect.Type == "TYPE_2" then
+                if not effect.StartTime then
+                    effect.StartTime = currentTime -- number (seconds)
+                end
+
+                local elapsed = currentTime - effect.StartTime
+                local progress = math.Clamp(elapsed / effect.Duration, 0, 1)
+                local x = Lerp(progress, 0.05, 0.8)
+
+                local lingerProgress = math.Clamp((elapsed - effect.Duration) / effect.LingerDuration, 0, 1)
+                local fade = 1 - lingerProgress
+
+                local baseTextureTransform = Matrix()
+                baseTextureTransform:SetScale(Vector(x, 1, 1))
+
+                Tenzan.SwordSlashMaterial:SetMatrix("$basetexturetransform", baseTextureTransform)
+                Tenzan.SwordSlashMaterial:SetVector("$color", effect.ColorVec * fade)
+
+                local modelMatrix = Matrix()
+                modelMatrix:SetTranslation(effect.Pos)
+                modelMatrix:SetAngles(effect.Angles)
+                modelMatrix:SetScale(Vector(1, 1, 0.05))
+
+                render.SetMaterial(Tenzan.SwordSlashMaterial)
+                cam.PushModelMatrix(modelMatrix * zoffset)
+                render.DrawSphere(origin, effect.Size, 30, 30)
+                cam.PopModelMatrix()
+
+                if elapsed >= effect.Duration + effect.LingerDuration then
                     table.remove(Tenzan.SwordSlashEffects, i)
                 end
             else
