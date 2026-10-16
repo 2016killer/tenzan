@@ -34,12 +34,12 @@ if CLIENT then
     Tenzan.SwordSlashMaterial = Material( "tenzan/swordslash" )
 
 
-    Tenzan.SwordSlashNormalEffect = {}
-    Tenzan.SwordSlashNormalEffect.__index = Tenzan.SwordSlashNormalEffect
-    function Tenzan.SwordSlashNormalEffect.new(pos, angles, size, duration, colorVec)
-        local self = setmetatable({}, Tenzan.SwordSlashNormalEffect)
+    Tenzan.SwordSlashEffectType_1 = {}
+    Tenzan.SwordSlashEffectType_1.__index = Tenzan.SwordSlashEffectType_1
+    function Tenzan.SwordSlashEffectType_1.new(pos, angles, size, duration, colorVec)
+        local self = setmetatable({}, Tenzan.SwordSlashEffectType_1)
 
-        self.Type = "Normal" -- string
+        self.Type = "TYPE_1" -- string
         self.Duration = duration or defaultDuration -- number (seconds)
         self.ColorVec = colorVec or defaultColorVec -- Vector
         self.Pos = pos -- Vector
@@ -51,7 +51,7 @@ if CLIENT then
 
     function Tenzan.PlaySwordSlash(pos, angles, size, duration, colorVec)
         Tenzan.SwordSlashEffects[#Tenzan.SwordSlashEffects + 1] =
-            Tenzan.SwordSlashNormalEffect.new(pos, angles, size, duration, colorVec)
+            Tenzan.SwordSlashEffectType_1.new(pos, angles, size, duration, colorVec)
     end
 
     net.Receive(NET_SLASH, function()
@@ -83,14 +83,14 @@ if CLIENT then
         for i = #Tenzan.SwordSlashEffects, 1, -1 do
             local effect = Tenzan.SwordSlashEffects[i]
 
-            if effect.Type == "Normal" then
+            if effect.Type == "TYPE_1" then
                 if not effect.StartTime then
                     effect.StartTime = currentTime -- number (seconds)
                 end
 
                 local elapsed = currentTime - effect.StartTime
-                local progress = math.Clamp(elapsed / effect.Duration, 0, 0.95)
-                local x = 1 - progress
+                local progress = math.Clamp(elapsed / effect.Duration, 0, 1)
+                local x = Lerp(progress, 0.8, 0.05)
 
                 local baseTextureTransform = Matrix()
                 baseTextureTransform:SetScale(Vector(x, 1, 1))
@@ -101,7 +101,7 @@ if CLIENT then
                 local modelMatrix = Matrix()
                 modelMatrix:SetTranslation(effect.Pos)
                 modelMatrix:SetAngles(effect.Angles)
-                modelMatrix:SetScale(Vector(1, 1, 0.1))
+                modelMatrix:SetScale(Vector(1, 1, 0.05))
 
                 render.SetMaterial(Tenzan.SwordSlashMaterial)
                 cam.PushModelMatrix(modelMatrix * zoffset)
