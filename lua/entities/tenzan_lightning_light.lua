@@ -42,7 +42,12 @@ if SERVER then
 		ent:Spawn()
 		ent:SetLightIntensity(2)
 		ent:SetEffectColor(Vector(1.0, 0.95, 0.4))
-		ent:SetEffectSize(2000)
+		ent:SetEffectSize(300)
+
+		undo.Create("Tenzan Lightning Light")
+		undo.AddEntity(ent)
+		undo.SetPlayer(ply)
+		undo.Finish()
 	end)
 end
 
@@ -74,20 +79,24 @@ if CLIENT then
 		local colorVec = self:GetEffectColor()
 		local size = self:GetEffectSize()
 
+
+		local dietimeadditive = self.SmoothedIntensity - intensity
+		local dietime = math.Clamp(0.25 + dietimeadditive * 1000, 0.1, 0.4)
+
 		local dlight = DynamicLight(self:EntIndex())
 		if dlight then
 			dlight.pos = self:GetPos()
 			dlight.r = colorVec.x * 255
 			dlight.g = colorVec.y * 255
 			dlight.b = colorVec.z * 255
-			dlight.brightness = intensity * 2
-			dlight.decay = 1000
-			dlight.size = size * 10
-			dlight.dietime = CurTime() + 0.5
+			dlight.brightness = self.SmoothedIntensity
+			dlight.decay = 1000 / dietime
+			dlight.size = size
+			dlight.dietime = CurTime() + dietime
 		end
 
 		LIGHT_MATERIAL:SetVector("$color", colorVec * intensity)
 		render.SetMaterial(LIGHT_MATERIAL)
-		render.DrawSprite(self:GetPos(), size * 3, size, color_white)
+		render.DrawSprite(self:GetPos(), size * 2, size / 4.0, color_white)
 	end
 end
