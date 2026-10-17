@@ -3,7 +3,7 @@ if CLIENT then
 
     local test_mul = 1
 
-    local function calculateLightningIntensity(t, average, jitterFrequency, jitterAmplitude, burstPeriod, burstAmplitude, burstDuration)
+    local function calculateLightningLightIntensity(t, average, jitterFrequency, jitterAmplitude, burstPeriod, burstAmplitude, burstDuration)
         local w = math.pi * 2 * jitterFrequency * t
 
         local jitterWave = (
@@ -36,14 +36,14 @@ if CLIENT then
     local BURST_AMPLITUDE_REF = 0.85
     local BURST_DURATION = 0.3
 
-    function Tenzan.GetLightningIntensity(AverageIntensity)
+    function Tenzan.GetLightningLightIntensity(AverageIntensity)
         local jitterAmplitude =
             JITTER_AMPLITUDE_REF / REFERENCE_INTENSITY * AverageIntensity
 
         local burstAmplitude =
             BURST_AMPLITUDE_REF / REFERENCE_INTENSITY * AverageIntensity
 
-        return calculateLightningIntensity(
+        return calculateLightningLightIntensity(
             RealTime(),
             AverageIntensity,
             JITTER_FREQUENCY,
@@ -55,14 +55,14 @@ if CLIENT then
     end
 
 
-    local test_colorVec = Vector(1.0, 0.95, 0.4)
-    local test_material = Material("tenzan/light_horizontal")
-    hook.Add("PostDrawTranslucentRenderables", "paintsprites", function()
-        test_mul = Tenzan.GetLightningIntensity(2)
+    -- local test_colorVec = Vector(1.0, 0.95, 0.4)
+    -- local test_material = Material("tenzan/light_horizontal")
+    -- hook.Add("PostDrawTranslucentRenderables", "paintsprites", function()
+    --     test_mul = Tenzan.GetLightningLightIntensity(2)
 
-        test_material:SetVector("$color", test_colorVec * test_mul)
+    --     test_material:SetVector("$color", test_colorVec * test_mul)
 
-        render.SetMaterial(test_material)
-        render.DrawSprite(vector_origin, 900, 300, test_colorVec * test_mul)
-    end)
+    --     render.SetMaterial(test_material)
+    --     render.DrawSprite(vector_origin, 900, 300, test_colorVec * test_mul)
+    -- end)
 end
