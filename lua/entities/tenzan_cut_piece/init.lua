@@ -8,7 +8,3 @@ function ENT:Initialize()
     self:SetMoveType(MOVETYPE_VPHYSICS)
     self:DrawShadow(false)
 end
-
-function ENT:OnRemove()
-    self.TenzanCutData = nil
-end

@@ -10,8 +10,6 @@ hook.Add("ShouldCollide", "TenzanCutPiece_Collisions", function(entity_a, entity
     end
 end)
 
-util.AddNetworkString("TenzanCutRequest")
-util.AddNetworkString("TenzanCutResult")
 util.AddNetworkString("TenzanCutPieceDataRequest")
 util.AddNetworkString("TenzanCutPieceData")
 
@@ -73,16 +71,6 @@ local function GetCutMaterial(surface_prop)
     end
 
     return "models/props_c17/FurnitureMetal001a"
-end
-
-local function SendResult(ply, message)
-    print(message)
-
-    if IsValid(ply) then
-        net.Start("TenzanCutResult")
-        net.WriteString(message)
-        net.Send(ply)
-    end
 end
 
 local function CopyVisualState(source, piece)
@@ -305,7 +293,6 @@ end
 
 local function ApplyCutAndReport(ply, entity, world_planes)
     if not IsValid(entity) then
-        SendResult(ply, "[Tenzan Cut] invalid target entity")
         return
     end
 
@@ -314,29 +301,10 @@ local function ApplyCutAndReport(ply, entity, world_planes)
     local success, result = Cut.ApplyEntityCut(entity, world_planes, ply)
 
     if not success then
-        SendResult(ply, "[Tenzan Cut] " .. result)
         return
     end
 
-    SendResult(ply, string.format(
-        "[Tenzan Cut] created %d visual entities from %s #%d",
-        #result.Entities,
-        class,
-        entity_index
-    ))
 end
-
-net.Receive("TenzanCutRequest", function(_, ply)
-    local entity = net.ReadEntity()
-    local point = net.ReadVector()
-    local normal_one = net.ReadVector()
-    local normal_two = net.ReadVector()
-
-    ApplyCutAndReport(ply, entity, {
-        { Point = point, Normal = normal_one },
-        { Point = point, Normal = normal_two }
-    })
-end)
 
 net.Receive("TenzanCutPieceDataRequest", function(_, ply)
     local piece = net.ReadEntity()
@@ -347,21 +315,20 @@ net.Receive("TenzanCutPieceDataRequest", function(_, ply)
         return
     end
 
-    local planes = piece.TenzanCutData.Planes
+    local data = piece.TenzanCutData
 
     net.Start("TenzanCutPieceData")
     net.WriteEntity(piece)
-    net.WriteUInt(#planes, 3)
+    net.WriteUInt(#data.Planes, 3)
 
-    for _, plane in ipairs(planes) do
+    for _, plane in ipairs(data.Planes) do
         net.WriteVector(plane.Point)
         net.WriteVector(plane.Normal)
     end
 
-    local caps = piece.TenzanCutData.Caps
-    net.WriteUInt(#caps, 16)
+    net.WriteUInt(#data.Caps, 16)
 
-    for _, cap in ipairs(caps) do
+    for _, cap in ipairs(data.Caps) do
         net.WriteVector(cap.Normal)
         net.WriteUInt(#cap.Points, 16)
 
@@ -370,21 +337,26 @@ net.Receive("TenzanCutPieceDataRequest", function(_, ply)
         end
     end
 
-    net.WriteString(piece.TenzanCutData.Material)
-
+    net.WriteString(data.Material)
     net.Send(ply)
 end)
 
-concommand.Add("tenzan_cut_entity", function(ply, _, args)
-    local entity = Entity(tonumber(args[1]) or 0)
-    if not IsValid(entity) then
-        SendResult(ply, "[Tenzan Cut] usage: tenzan_cut_entity <entity index>")
+concommand.Add("tenzan_cut_test", function(ply)
+    if not IsValid(ply) then
         return
     end
 
-    local center = entity:WorldSpaceCenter()
-    ApplyCutAndReport(ply, entity, {
-        { Point = center, Normal = Vector(1, 0, 0) },
-        { Point = center, Normal = Vector(0, 1, 0) }
+    local trace = ply:GetEyeTrace()
+    if not trace.Hit
+        or not IsValid(trace.Entity)
+        or trace.Entity == game.GetWorld() then
+        return
+    end
+
+    local eye_angles = ply:EyeAngles()
+    ApplyCutAndReport(ply, trace.Entity, {
+        { Point = trace.HitPos, Normal = eye_angles:Right() },
+        { Point = trace.HitPos, Normal = eye_angles:Up() }
     })
 end)
+
