@@ -1,5 +1,5 @@
 local Cut = Tenzan.Cut
-local PIECE_SEPARATION = 0.75
+local PIECE_FORCE = 600
 
 hook.Add("ShouldCollide", "TenzanCutPiece_Collisions", function(entity_a, entity_b)
     if IsValid(entity_a)
@@ -150,7 +150,8 @@ local function CreateVisualPiece(
     angles,
     planes,
     caps,
-    physics_state
+    physics_state,
+    force_direction
 )
     local piece = ents.Create("tenzan_cut_piece")
     if not IsValid(piece) then return nil end
@@ -176,7 +177,10 @@ local function CreateVisualPiece(
     piece:EnableCustomCollisions()
     piece:SetCustomCollisionCheck(true)
     piece:CollisionRulesChanged()
-    physics_object:SetMass(math.max(physics_state.Mass / 4, 0.1))
+    physics_object:SetMass(math.max(
+        physics_state.Mass / 4,
+        0.1
+    ))
 
     if physics_state.Material and physics_state.Material ~= "" then
         physics_object:SetMaterial(physics_state.Material)
@@ -186,6 +190,9 @@ local function CreateVisualPiece(
         physics_object:SetVelocity(physics_state.Velocity)
         physics_object:SetAngleVelocity(physics_state.AngleVelocity)
         physics_object:Wake()
+        physics_object:ApplyForceCenter(
+            force_direction * physics_object:GetMass() * PIECE_FORCE
+        )
     else
         physics_object:EnableMotion(false)
     end
@@ -231,7 +238,10 @@ function Cut.ApplyEntityCut(source, world_planes, ply)
     }
 
     if IsValid(source_physics) then
-        physics_state.Mass = math.max(source_physics:GetMass(), 0.4)
+        physics_state.Mass = math.max(
+            source_physics:GetMass(),
+            0.4
+        )
         physics_state.Material = source_physics:GetMaterial()
         physics_state.MotionEnabled = source_physics:IsMotionEnabled()
         physics_state.Velocity = source_physics:GetVelocity()
@@ -256,9 +266,13 @@ function Cut.ApplyEntityCut(source, world_planes, ply)
             }
         end
 
-        local offset = piece_planes[1].Normal + piece_planes[2].Normal
+        local separation_direction =
+            piece_planes[1].Normal + piece_planes[2].Normal
+        local offset = Vector(separation_direction)
         offset:Normalize()
-        offset:Mul(PIECE_SEPARATION)
+        offset:Mul(0.75)
+        local force_direction = source:LocalToWorld(separation_direction)
+            - source:GetPos()
 
         local piece = CreateVisualPiece(
             source,
@@ -266,7 +280,8 @@ function Cut.ApplyEntityCut(source, world_planes, ply)
             source_angles,
             piece_planes,
             caps_by_mask[mask + 1],
-            physics_state
+            physics_state,
+            force_direction
         )
 
         if not piece then
