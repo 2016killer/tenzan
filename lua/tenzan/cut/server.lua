@@ -15,6 +15,66 @@ util.AddNetworkString("TenzanCutResult")
 util.AddNetworkString("TenzanCutPieceDataRequest")
 util.AddNetworkString("TenzanCutPieceData")
 
+local function GetCutMaterial(surface_prop)
+    local surface = string.lower(surface_prop or "")
+    local function contains(text)
+        return string.find(surface, text, 1, true) ~= nil
+    end
+
+    if surface == "combine_metal" then
+        return "cut_entity/surface/combine_metal"
+    end
+
+    if surface == "gunship" then
+        return "cut_entity/surface/gunship_flesh"
+    end
+
+    if surface == "strider" then
+        return "cut_entity/surface/strider_flesh"
+    end
+
+    if contains("metal")
+        or contains("canister")
+        or contains("chain")
+        or surface == "weapon"
+        or surface == "crowbar"
+        or surface == "roller" then
+        return "cut_entity/surface/metal"
+    end
+
+    if contains("wood") or surface == "foliage" then
+        return "cut_entity/surface/wood"
+    end
+
+    if contains("concrete")
+        or contains("stone")
+        or contains("brick")
+        or contains("rock")
+        or surface == "tile"
+        or surface == "asphalt"
+        or surface == "gravel"
+        or surface == "sand" then
+        return "cut_entity/surface/concrete"
+    end
+
+    if contains("plaster") then
+        return "cut_entity/surface/plaster"
+    end
+
+    if contains("rubber") then
+        return "cut_entity/surface/rubber"
+    end
+
+    if contains("flesh")
+        or surface == "antlion"
+        or surface == "bloodyflesh"
+        or surface == "armorflesh" then
+        return "cut_entity/surface/flesh"
+    end
+
+    return "models/props_c17/FurnitureMetal001a"
+end
+
 local function SendResult(ply, message)
     print(message)
 
@@ -132,7 +192,8 @@ local function CreateVisualPiece(
 
     piece.TenzanCutData = {
         Planes = planes,
-        Caps = caps
+        Caps = caps,
+        Material = physics_state.CutMaterial
     }
 
     return piece
@@ -176,6 +237,8 @@ function Cut.ApplyEntityCut(source, world_planes, ply)
         physics_state.Velocity = source_physics:GetVelocity()
         physics_state.AngleVelocity = source_physics:GetAngleVelocity()
     end
+
+    physics_state.CutMaterial = GetCutMaterial(physics_state.Material)
 
     for mask = 0, 3 do
         local keep_positive = {
@@ -291,6 +354,8 @@ net.Receive("TenzanCutPieceDataRequest", function(_, ply)
             net.WriteVector(point)
         end
     end
+
+    net.WriteString(piece.TenzanCutData.Material)
 
     net.Send(ply)
 end)
