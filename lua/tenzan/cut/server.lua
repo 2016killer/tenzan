@@ -1,5 +1,5 @@
 local Cut = Tenzan.Cut
-local PIECE_FORCE = 600
+local PIECE_FORCE = 300
 
 hook.Add("ShouldCollide", "TenzanCutPiece_Collisions", function(entity_a, entity_b)
     if IsValid(entity_a)
@@ -200,6 +200,10 @@ function Cut.ApplyEntityCut(source, world_planes, ply)
     end
 
     local class = source:GetClass()
+    if class == "tenzan_cut_piece" then
+        return false, "cut pieces cannot be cut again"
+    end
+
     if class == "prop_ragdoll" or source:IsPlayer() or source:IsNPC() then
         return false, "ragdolls, players and NPCs are not supported yet"
     end
