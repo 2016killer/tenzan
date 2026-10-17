@@ -3,23 +3,91 @@ ENT.Base = "base_anim"
 ENT.PrintName = "LightningLightEffect"
 ENT.Category = "Tenzan"
 
--- TODO，使用开发者控制台变量决定
-ENT.Spawnable = ...
+ENT.RenderGroup = RENDERGROUP_TRANSLUCENT
+ENT.Spawnable = false
+
+function ENT:SetupDataTables()
+	self:NetworkVar("Float", 0, "AverageIntensity")
+	self:NetworkVar("Vector", 0, "EffectColor")
+	self:NetworkVar("Float", 1, "EffectSize")
+end
 
 if SERVER then
 	AddCSLuaFile()
 
 	function ENT:Initialize()
 		self:DrawShadow(false)
+		self:SetAverageIntensity(2)
+		self:SetEffectColor(Vector(1.0, 0.95, 0.4))
+		self:SetEffectSize(300)
 	end
 
 	function ENT:SetLightIntensity(intensity)
-		-- TODO 使用网络变量, 在客户端需要监听变化，然后使用线性插值（0.1s内完成）
+		self:SetAverageIntensity(intensity)
 	end
+
+	concommand.Add("tenzan_test_light", function(ply)
+		if not IsValid(ply) then
+			return
+		end
+
+		local tr = ply:GetEyeTrace()
+		local ent = ents.Create("tenzan_lightning_light")
+		if not IsValid(ent) then
+			return
+		end
+
+		ent:SetPos(tr.HitPos + tr.HitNormal * 8)
+		ent:SetAngles(ply:EyeAngles())
+		ent:Spawn()
+		ent:SetLightIntensity(2)
+		ent:SetEffectColor(Vector(1.0, 0.95, 0.4))
+		ent:SetEffectSize(2000)
+	end)
 end
 
 if CLIENT then
-	function ENT:Draw()
-		-- TODO 光效绘制
+	local LIGHT_MATERIAL = Material("tenzan/light_horizontal")
+
+	function ENT:Initialize()
+		self.SmoothedIntensity = self:GetAverageIntensity()
+		self.LastTargetIntensity = self.SmoothedIntensity
+		self.LerpStartIntensity = self.SmoothedIntensity
+		self.LerpStartTime = RealTime()
+		self:SetRenderBounds(Vector(-1024, -1024, -1024), Vector(1024, 1024, 1024))
+	end
+
+	function ENT:DrawTranslucent()
+		local currentTime = RealTime()
+		local targetIntensity = self:GetAverageIntensity()
+
+		if targetIntensity ~= self.LastTargetIntensity then
+			self.LastTargetIntensity = targetIntensity
+			self.LerpStartIntensity = self.SmoothedIntensity
+			self.LerpStartTime = currentTime
+		end
+
+		local lerpProgress = math.Clamp((currentTime - self.LerpStartTime) / 0.1, 0, 1)
+		self.SmoothedIntensity = Lerp(lerpProgress, self.LerpStartIntensity, targetIntensity)
+
+		local intensity = Tenzan.GetLightningLightIntensity(self.SmoothedIntensity)
+		local colorVec = self:GetEffectColor()
+		local size = self:GetEffectSize()
+
+		local dlight = DynamicLight(self:EntIndex())
+		if dlight then
+			dlight.pos = self:GetPos()
+			dlight.r = colorVec.x * 255
+			dlight.g = colorVec.y * 255
+			dlight.b = colorVec.z * 255
+			dlight.brightness = intensity * 2
+			dlight.decay = 1000
+			dlight.size = size * 10
+			dlight.dietime = CurTime() + 0.5
+		end
+
+		LIGHT_MATERIAL:SetVector("$color", colorVec * intensity)
+		render.SetMaterial(LIGHT_MATERIAL)
+		render.DrawSprite(self:GetPos(), size * 3, size, color_white)
 	end
 end
